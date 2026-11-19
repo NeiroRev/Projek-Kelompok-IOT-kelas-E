@@ -3,6 +3,7 @@
 #include <Adafruit_SSD1306.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <time.h>
 
 // Pemetaan Pin (Sesuai Laporan)
 #define SDA_PIN 21
@@ -29,7 +30,9 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 bool isAlarmActive = false;
+bool oledOk = false;               // false = jalan terus tanpa layar, alarm tetap berfungsi
 int totalPelanggaran = 0;
+unsigned long lastReconnect = 0;   // jeda percobaan koneksi ulang MQTT
 
 void setup() {
   Serial.begin(115200);
@@ -47,13 +50,16 @@ void setup() {
   digitalWrite(RELAY2_PIN, LOW);
 
   Wire.begin(SDA_PIN, SCL_PIN);
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println(F("Gagal memuat OLED"));
-    for(;;);
+  oledOk = display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  if(!oledOk) {
+    // Jangan berhenti di sini: buzzer, LED, dan relay harus tetap bekerja walau layar rusak
+    Serial.println(F("Gagal memuat OLED, lanjut tanpa layar"));
   }
-  
+
   WiFi.begin(ssid, password);
+  configTime(7 * 3600, 0, "pool.ntp.org"); // Waktu kejadian dalam WIB (UTC+7)
   client.setServer(mqtt_server, 1883);
+  client.setSocketTimeout(2); // Batasi blokir loop saat broker tidak terjangkau (bawaan 15 detik)
 
   setNormalState();
 }
@@ -67,6 +73,7 @@ void setNormalState() {
   digitalWrite(RELAY2_PIN, LOW);
   digitalWrite(LED_HIJAU, HIGH);
 
+  if(!oledOk) return;
   display.clearDisplay();
   display.setTextSize(2);
   display.setTextColor(WHITE);
@@ -87,21 +94,37 @@ void setAlarmState() {
   digitalWrite(RELAY1_PIN, HIGH);
   digitalWrite(RELAY2_PIN, HIGH);
 
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(5, 10);
-  display.println("BAHAYA: MENGANTUK!");
-  display.setCursor(10, 35);
-  display.print("Pelanggaran: ");
-  display.println(totalPelanggaran);
-  display.display();
-
-  // Pengiriman Log ke Cloud (Asinkron / Non-blocking)
-  if (client.connected()) {
-    String payload = "Waktu Kejadian Terkini - Total Kantuk: " + String(totalPelanggaran);
-    client.publish("kelompok8/deteksi_kantuk/log", payload.c_str());
+  if(oledOk) {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(WHITE);
+    display.setCursor(5, 10);
+    display.println("BAHAYA: MENGANTUK!");
+    display.setCursor(10, 35);
+    display.print("Pelanggaran: ");
+    display.println(totalPelanggaran);
+    display.display();
   }
+
+  // Pengiriman Log ke Cloud (setelah aktuator, boleh gagal tanpa mengganggu alarm)
+  kirimLog();
+}
+
+void kirimLog() {
+  if (!client.connected()) return;
+
+  // Timeout 0 ms: jangan menunggu NTP; jika belum sinkron kirim "belum-sinkron"
+  char waktu[20] = "belum-sinkron";
+  struct tm info;
+  if (getLocalTime(&info, 0)) {
+    strftime(waktu, sizeof(waktu), "%Y-%m-%dT%H:%M:%S", &info);
+  }
+
+  char payload[96];
+  snprintf(payload, sizeof(payload),
+           "{\"device\":\"ESP32_Kel8\",\"waktu\":\"%s\",\"total_kantuk\":%d}",
+           waktu, totalPelanggaran);
+  client.publish("kelompok8/deteksi_kantuk/log", payload);
 }
 
 void loop() {
@@ -112,9 +135,11 @@ void loop() {
     if (dataMasuk == '1') {
       setAlarmState();
     } else if (dataMasuk == 'W' && !isAlarmActive) {
+      digitalWrite(LED_HIJAU, LOW);
       digitalWrite(LED_KUNING, HIGH); // Indikator 1 detik awal
     } else if (dataMasuk == '0' && !isAlarmActive) {
       digitalWrite(LED_KUNING, LOW);  // Reset indikator kuning
+      digitalWrite(LED_HIJAU, HIGH);
     }
   }
 
@@ -127,8 +152,9 @@ void loop() {
     }
   }
 
-  // 3. Jaga Koneksi Cloud di Latar Belakang
-  if (!client.connected() && WiFi.status() == WL_CONNECTED) {
+  // 3. Jaga Koneksi Cloud di Latar Belakang (dicoba paling cepat tiap 5 detik agar loop tidak tertahan)
+  if (!client.connected() && WiFi.status() == WL_CONNECTED && millis() - lastReconnect >= 5000) {
+    lastReconnect = millis();
     client.connect("ESP32_Kel8_Client");
   }
   client.loop();
