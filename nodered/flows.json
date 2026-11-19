@@ -1,0 +1,891 @@
+[
+  {
+    "id": "dk_tab",
+    "type": "tab",
+    "label": "Deteksi Kantuk (Kelompok 8)",
+    "disabled": false,
+    "info": "Dashboard monitoring pengemudi. Lihat README repo Projek-Kelompok-IOT-kelas-E."
+  },
+  {
+    "id": "dk_broker",
+    "type": "mqtt-broker",
+    "name": "HiveMQ publik",
+    "broker": "broker.hivemq.com",
+    "port": "1883",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "dk_mongo",
+    "type": "mongodb",
+    "hostname": "127.0.0.1",
+    "topology": "direct",
+    "connectOptions": "",
+    "port": "27017",
+    "db": "deteksi_kantuk",
+    "name": "MongoDB lokal"
+  },
+  {
+    "id": "dk_ui_tab",
+    "type": "ui_tab",
+    "name": "Monitoring Pengemudi",
+    "icon": "dashboard",
+    "order": 1,
+    "disabled": false,
+    "hidden": false
+  },
+  {
+    "id": "dk_g_status",
+    "type": "ui_group",
+    "name": "Status Perangkat",
+    "tab": "dk_ui_tab",
+    "order": 1,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "dk_g_lelah",
+    "type": "ui_group",
+    "name": "Kelelahan (Smart)",
+    "tab": "dk_ui_tab",
+    "order": 2,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "dk_g_grafik",
+    "type": "ui_group",
+    "name": "Grafik",
+    "tab": "dk_ui_tab",
+    "order": 3,
+    "disp": true,
+    "width": "12",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "dk_g_kejadian",
+    "type": "ui_group",
+    "name": "Ringkasan & Kejadian",
+    "tab": "dk_ui_tab",
+    "order": 4,
+    "disp": true,
+    "width": "12",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "dk_in_tel",
+    "type": "mqtt in",
+    "z": "dk_tab",
+    "x": 120,
+    "y": 100,
+    "name": "telemetri",
+    "topic": "kelompok8/deteksi_kantuk/telemetri",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "dk_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "dk_f_diterima_tel",
+        "dk_f_pecah",
+        "dk_f_status",
+        "dk_trig_watchdog"
+      ]
+    ]
+  },
+  {
+    "id": "dk_in_log",
+    "type": "mqtt in",
+    "z": "dk_tab",
+    "x": 120,
+    "y": 420,
+    "name": "log",
+    "topic": "kelompok8/deteksi_kantuk/log",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "dk_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "dk_f_diterima_log",
+        "dk_f_toast",
+        "dk_delay_refresh"
+      ]
+    ]
+  },
+  {
+    "id": "dk_in_status",
+    "type": "mqtt in",
+    "z": "dk_tab",
+    "x": 120,
+    "y": 300,
+    "name": "status",
+    "topic": "kelompok8/deteksi_kantuk/status",
+    "qos": "1",
+    "datatype": "utf8",
+    "broker": "dk_broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "dk_f_status"
+      ]
+    ]
+  },
+  {
+    "id": "dk_f_diterima_tel",
+    "type": "function",
+    "z": "dk_tab",
+    "x": 360,
+    "y": 60,
+    "name": "tambah diterima",
+    "func": "msg.payload.diterima = new Date();\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "dk_db_tel"
+      ]
+    ]
+  },
+  {
+    "id": "dk_f_diterima_log",
+    "type": "function",
+    "z": "dk_tab",
+    "x": 360,
+    "y": 380,
+    "name": "tambah diterima",
+    "func": "msg.payload.diterima = new Date();\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "dk_db_log"
+      ]
+    ]
+  },
+  {
+    "id": "dk_db_tel",
+    "type": "mongodb out",
+    "z": "dk_tab",
+    "x": 580,
+    "y": 60,
+    "mongodb": "dk_mongo",
+    "name": "simpan telemetri",
+    "collection": "telemetri",
+    "payonly": true,
+    "upsert": false,
+    "multi": false,
+    "operation": "insert",
+    "wires": []
+  },
+  {
+    "id": "dk_db_log",
+    "type": "mongodb out",
+    "z": "dk_tab",
+    "x": 580,
+    "y": 380,
+    "mongodb": "dk_mongo",
+    "name": "simpan kejadian",
+    "collection": "kejadian",
+    "payonly": true,
+    "upsert": false,
+    "multi": false,
+    "operation": "insert",
+    "wires": []
+  },
+  {
+    "id": "dk_f_pecah",
+    "type": "function",
+    "z": "dk_tab",
+    "x": 380,
+    "y": 160,
+    "name": "pecah telemetri",
+    "func": "// Telemetri 1 Hz dari ESP32 -> widget. Field laptop bernilai null bila kamera/laptop terputus.\nconst p = msg.payload;\nconst SARAN = {SEGAR: 'Kondisi baik, tetap fokus', WASPADA: 'Mulai lelah, minum air dan buka jendela',\n               LELAH: 'Disarankan istirahat 15 menit', BAHAYA: 'Segera menepi dan istirahat', '-': 'Menunggu kalibrasi'};\nconst out = [null, null, null, null, null, null, null];\nconst ada = (v) => v !== null && v !== undefined;\n\nif (p.kamera && ada(p.skor)) out[0] = {payload: p.skor};\nout[1] = {payload: p.kamera ? (p.level || '-') : 'kamera/laptop terputus'};\nout[2] = {payload: p.kamera ? (SARAN[p.level] || '-') : '-'};\nif (ada(p.ambang)) {\n    const kal = {0: ' · sedang kalibrasi', 1: '', 2: ' · kalibrasi gagal'}[p.kalibrasi] || '';\n    const base = ada(p.baseline) ? p.baseline.toFixed(3) : '-';\n    out[3] = {payload: `${p.ambang.toFixed(3)} (baseline ${base})${kal}`};\n}\nif (ada(p.ear)) out[4] = [{topic: 'EAR', payload: p.ear}, {topic: 'Ambang', payload: p.ambang}];\nif (ada(p.skor)) out[5] = [{topic: 'Skor', payload: p.skor}, {topic: 'PERCLOS (%)', payload: p.perclos}];\nout[6] = {payload: p.total_kantuk};\nreturn out;",
+    "outputs": 7,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "dk_ui_gauge"
+      ],
+      [
+        "dk_ui_level"
+      ],
+      [
+        "dk_ui_saran"
+      ],
+      [
+        "dk_ui_ambang"
+      ],
+      [
+        "dk_ui_chart_ear"
+      ],
+      [
+        "dk_ui_chart_skor"
+      ],
+      [
+        "dk_ui_total_alat"
+      ]
+    ]
+  },
+  {
+    "id": "dk_ui_gauge",
+    "type": "ui_gauge",
+    "z": "dk_tab",
+    "x": 680,
+    "y": 120,
+    "group": "dk_g_lelah",
+    "order": 1,
+    "width": "6",
+    "height": "4",
+    "name": "Skor kelelahan",
+    "gtype": "gage",
+    "title": "SKOR KELELAHAN",
+    "label": "/ 100",
+    "format": "{{value}}",
+    "min": 0,
+    "max": "100",
+    "colors": [
+      "#00b500",
+      "#e6e600",
+      "#ca3838"
+    ],
+    "seg1": "55",
+    "seg2": "80",
+    "diff": false,
+    "className": "",
+    "wires": []
+  },
+  {
+    "id": "dk_ui_level",
+    "type": "ui_text",
+    "z": "dk_tab",
+    "x": 680,
+    "y": 160,
+    "group": "dk_g_lelah",
+    "order": 2,
+    "width": "6",
+    "height": "1",
+    "name": "Level",
+    "label": "Level",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "wires": []
+  },
+  {
+    "id": "dk_ui_saran",
+    "type": "ui_text",
+    "z": "dk_tab",
+    "x": 680,
+    "y": 200,
+    "group": "dk_g_lelah",
+    "order": 3,
+    "width": "6",
+    "height": "1",
+    "name": "Saran",
+    "label": "Saran",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "wires": []
+  },
+  {
+    "id": "dk_ui_ambang",
+    "type": "ui_text",
+    "z": "dk_tab",
+    "x": 680,
+    "y": 240,
+    "group": "dk_g_lelah",
+    "order": 4,
+    "width": "6",
+    "height": "1",
+    "name": "Ambang pribadi",
+    "label": "Ambang pribadi",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "wires": []
+  },
+  {
+    "id": "dk_ui_chart_ear",
+    "type": "ui_chart",
+    "z": "dk_tab",
+    "x": 690,
+    "y": 280,
+    "group": "dk_g_grafik",
+    "order": 1,
+    "width": "12",
+    "height": "5",
+    "name": "EAR dan ambang (2 menit)",
+    "label": "EAR dan ambang (2 menit)",
+    "chartType": "line",
+    "legend": "true",
+    "xformat": "HH:mm:ss",
+    "interpolate": "linear",
+    "nodata": "Menunggu data",
+    "dot": false,
+    "ymin": "0",
+    "ymax": "0.5",
+    "removeOlder": "2",
+    "removeOlderPoints": "",
+    "removeOlderUnit": "60",
+    "cutout": 0,
+    "useOneColor": false,
+    "useUTC": false,
+    "colors": [
+      "#1f77b4",
+      "#d62728",
+      "#ff7f0e",
+      "#2ca02c",
+      "#98df8a",
+      "#d62728",
+      "#ff9896",
+      "#9467bd",
+      "#c5b0d5"
+    ],
+    "outputs": 1,
+    "useDifferentColor": false,
+    "className": "",
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "dk_ui_chart_skor",
+    "type": "ui_chart",
+    "z": "dk_tab",
+    "x": 690,
+    "y": 320,
+    "group": "dk_g_grafik",
+    "order": 2,
+    "width": "12",
+    "height": "5",
+    "name": "Skor & PERCLOS (30 menit)",
+    "label": "Skor & PERCLOS (30 menit)",
+    "chartType": "line",
+    "legend": "true",
+    "xformat": "HH:mm:ss",
+    "interpolate": "linear",
+    "nodata": "Menunggu data",
+    "dot": false,
+    "ymin": "0",
+    "ymax": "100",
+    "removeOlder": "30",
+    "removeOlderPoints": "",
+    "removeOlderUnit": "60",
+    "cutout": 0,
+    "useOneColor": false,
+    "useUTC": false,
+    "colors": [
+      "#1f77b4",
+      "#d62728",
+      "#ff7f0e",
+      "#2ca02c",
+      "#98df8a",
+      "#d62728",
+      "#ff9896",
+      "#9467bd",
+      "#c5b0d5"
+    ],
+    "outputs": 1,
+    "useDifferentColor": false,
+    "className": "",
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "dk_ui_total_alat",
+    "type": "ui_text",
+    "z": "dk_tab",
+    "x": 700,
+    "y": 360,
+    "group": "dk_g_kejadian",
+    "order": 2,
+    "width": "6",
+    "height": "1",
+    "name": "Total kantuk sejak alat menyala",
+    "label": "Total kantuk sejak alat menyala",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "wires": []
+  },
+  {
+    "id": "dk_trig_watchdog",
+    "type": "trigger",
+    "z": "dk_tab",
+    "x": 360,
+    "y": 260,
+    "name": "5 s tanpa telemetri",
+    "op1": "",
+    "op2": "OFFLINE",
+    "op1type": "nul",
+    "op2type": "str",
+    "duration": "5",
+    "extend": true,
+    "overrideDelay": false,
+    "units": "s",
+    "reset": "",
+    "bytopic": "all",
+    "topic": "topic",
+    "outputs": 1,
+    "wires": [
+      [
+        "dk_f_watchdog"
+      ]
+    ]
+  },
+  {
+    "id": "dk_f_watchdog",
+    "type": "function",
+    "z": "dk_tab",
+    "x": 560,
+    "y": 260,
+    "name": "tandai watchdog",
+    "func": "msg.topic = 'watchdog';\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "dk_f_status"
+      ]
+    ]
+  },
+  {
+    "id": "dk_f_status",
+    "type": "function",
+    "z": "dk_tab",
+    "x": 760,
+    "y": 260,
+    "name": "status perangkat",
+    "func": "// Gabungkan status MQTT (retain + Last Will), telemetri, dan watchdog 5 s\nconst s = context.get('s') || {online: false, kamera: false, rssi: null, alarm: false, wajib: false, waktu: '-'};\nif (msg.topic === 'kelompok8/deteksi_kantuk/status') {\n    s.online = msg.payload === 'online';\n} else if (msg.topic === 'watchdog') {\n    s.online = false;\n} else {\n    const p = msg.payload;\n    s.online = true;\n    s.kamera = !!p.kamera;\n    s.rssi = p.rssi;\n    s.alarm = !!p.alarm;\n    s.wajib = !!p.wajib_istirahat;\n    s.waktu = new Date().toLocaleTimeString('id-ID');\n}\ncontext.set('s', s);\nreturn {payload: Object.assign({}, s)};",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "dk_ui_status"
+      ]
+    ]
+  },
+  {
+    "id": "dk_ui_status",
+    "type": "ui_template",
+    "z": "dk_tab",
+    "x": 960,
+    "y": 260,
+    "group": "dk_g_status",
+    "order": 1,
+    "width": "6",
+    "height": "5",
+    "name": "Status perangkat",
+    "format": "<div ng-if=\"msg.payload\">\n  <div style=\"font-size:1.3em;font-weight:bold\" ng-style=\"{color: msg.payload.online ? '#2e7d32' : '#c62828'}\">\n    &#9679; Perangkat {{msg.payload.online ? 'ONLINE' : 'OFFLINE'}}\n    <span ng-if=\"msg.payload.online && !msg.payload.kamera\" style=\"color:#ef6c00\"> &middot; kamera/laptop TERPUTUS</span>\n  </div>\n  <div ng-if=\"msg.payload.online\">RSSI {{msg.payload.rssi}} dBm &middot; update terakhir {{msg.payload.waktu}}</div>\n  <div ng-if=\"!msg.payload.online\">Alarm lokal di alat tetap bekerja tanpa internet.</div>\n  <div ng-if=\"msg.payload.alarm\" style=\"background:#c62828;color:#fff;padding:8px;margin-top:8px;font-weight:bold\">\n    ALARM AKTIF &mdash; pengemudi harus menekan tombol di alat</div>\n  <div ng-if=\"msg.payload.wajib\" style=\"background:#7f0000;color:#fff;padding:12px;margin-top:8px;font-size:1.4em;font-weight:bold;text-align:center\">\n    WAJIB ISTIRAHAT<br><small>2 alarm dalam 10 menit</small></div>\n</div>",
+    "storeOutMessages": true,
+    "fwdInMessages": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "dk_btn_0",
+    "type": "ui_button",
+    "z": "dk_tab",
+    "x": 120,
+    "y": 520,
+    "group": "dk_g_status",
+    "order": 2,
+    "width": "3",
+    "height": "1",
+    "name": "Kalibrasi ulang",
+    "label": "Kalibrasi ulang",
+    "tooltip": "",
+    "color": "#ffffff",
+    "bgcolor": "#1565c0",
+    "className": "",
+    "icon": "",
+    "payload": "KALIBRASI",
+    "payloadType": "str",
+    "topic": "",
+    "topicType": "str",
+    "wires": [
+      [
+        "dk_out_perintah"
+      ]
+    ]
+  },
+  {
+    "id": "dk_btn_1",
+    "type": "ui_button",
+    "z": "dk_tab",
+    "x": 120,
+    "y": 560,
+    "group": "dk_g_status",
+    "order": 3,
+    "width": "3",
+    "height": "1",
+    "name": "Tes alarm",
+    "label": "Tes alarm",
+    "tooltip": "",
+    "color": "#ffffff",
+    "bgcolor": "#c62828",
+    "className": "",
+    "icon": "",
+    "payload": "TES_ALARM",
+    "payloadType": "str",
+    "topic": "",
+    "topicType": "str",
+    "wires": [
+      [
+        "dk_out_perintah"
+      ]
+    ]
+  },
+  {
+    "id": "dk_out_perintah",
+    "type": "mqtt out",
+    "z": "dk_tab",
+    "x": 360,
+    "y": 540,
+    "name": "perintah",
+    "topic": "kelompok8/deteksi_kantuk/perintah",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "dk_broker",
+    "wires": []
+  },
+  {
+    "id": "dk_f_toast",
+    "type": "function",
+    "z": "dk_tab",
+    "x": 360,
+    "y": 440,
+    "name": "teks notifikasi",
+    "func": "const p = msg.payload;\nconst teks = {\n    alarm: 'Microsleep terdeteksi! Alarm menyala di kendaraan',\n    wajib_istirahat: 'Pengemudi WAJIB ISTIRAHAT (2 alarm dalam 10 menit)',\n    kalibrasi_ditolak: 'Kalibrasi ditolak: alarm atau wajib istirahat sedang aktif',\n    level: 'Tingkat kelelahan naik ke ' + p.level,\n    reset: 'Alarm dimatikan pengemudi, waktu respons ' + p.durasi_alarm_s + ' s'\n}[p.jenis];\nif (!teks) return null;\nreturn {topic: 'Deteksi Kantuk', payload: teks};",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "dk_ui_toast"
+      ]
+    ]
+  },
+  {
+    "id": "dk_ui_toast",
+    "type": "ui_toast",
+    "z": "dk_tab",
+    "x": 560,
+    "y": 440,
+    "position": "top right",
+    "displayTime": "6",
+    "highlight": "#c62828",
+    "sendall": true,
+    "outputs": 0,
+    "ok": "OK",
+    "cancel": "",
+    "raw": false,
+    "className": "",
+    "topic": "",
+    "name": "Notifikasi",
+    "wires": []
+  },
+  {
+    "id": "dk_delay_refresh",
+    "type": "delay",
+    "z": "dk_tab",
+    "x": 360,
+    "y": 480,
+    "name": "tunggu insert",
+    "pauseType": "delay",
+    "timeout": "700",
+    "timeoutUnits": "milliseconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "rateUnits": "second",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "allowrate": false,
+    "outputs": 1,
+    "wires": [
+      [
+        "dk_f_query"
+      ]
+    ]
+  },
+  {
+    "id": "dk_ui_ctrl",
+    "type": "ui_ui_control",
+    "z": "dk_tab",
+    "x": 120,
+    "y": 640,
+    "name": "dashboard dibuka",
+    "events": "connect",
+    "wires": [
+      [
+        "dk_f_query",
+        "dk_f_query_hist"
+      ]
+    ]
+  },
+  {
+    "id": "dk_inject_awal",
+    "type": "inject",
+    "z": "dk_tab",
+    "x": 130,
+    "y": 600,
+    "name": "saat deploy",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "wires": [
+      [
+        "dk_f_query"
+      ]
+    ]
+  },
+  {
+    "id": "dk_f_query",
+    "type": "function",
+    "z": "dk_tab",
+    "x": 380,
+    "y": 620,
+    "name": "query ringkasan",
+    "func": "// Total kantuk hari ini (sejak 00.00) dan 10 kejadian terakhir\nconst awal = new Date();\nawal.setHours(0, 0, 0, 0);\nreturn [{payload: {jenis: 'alarm', diterima: {$gte: awal}}},\n        {payload: {}, sort: {diterima: -1}, limit: 10}];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "dk_db_count"
+      ],
+      [
+        "dk_db_find"
+      ]
+    ]
+  },
+  {
+    "id": "dk_db_count",
+    "type": "mongodb in",
+    "z": "dk_tab",
+    "x": 600,
+    "y": 600,
+    "mongodb": "dk_mongo",
+    "name": "hitung alarm hari ini",
+    "collection": "kejadian",
+    "operation": "count",
+    "wires": [
+      [
+        "dk_ui_total_hari"
+      ]
+    ]
+  },
+  {
+    "id": "dk_db_find",
+    "type": "mongodb in",
+    "z": "dk_tab",
+    "x": 600,
+    "y": 640,
+    "mongodb": "dk_mongo",
+    "name": "10 kejadian terakhir",
+    "collection": "kejadian",
+    "operation": "find",
+    "wires": [
+      [
+        "dk_ui_tabel"
+      ]
+    ]
+  },
+  {
+    "id": "dk_ui_total_hari",
+    "type": "ui_text",
+    "z": "dk_tab",
+    "x": 830,
+    "y": 600,
+    "group": "dk_g_kejadian",
+    "order": 1,
+    "width": "6",
+    "height": "1",
+    "name": "Total kantuk hari ini",
+    "label": "Total kantuk hari ini",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "wires": []
+  },
+  {
+    "id": "dk_ui_tabel",
+    "type": "ui_template",
+    "z": "dk_tab",
+    "x": 830,
+    "y": 640,
+    "group": "dk_g_kejadian",
+    "order": 3,
+    "width": "12",
+    "height": "6",
+    "name": "Tabel kejadian",
+    "format": "<table style=\"width:100%;border-collapse:collapse\">\n  <tr style=\"text-align:left;border-bottom:1px solid #999\"><th>Waktu</th><th>Kejadian</th><th>Total</th><th>Respons</th></tr>\n  <tr ng-repeat=\"e in msg.payload\" style=\"border-bottom:1px solid #ddd\">\n    <td>{{e.waktu}}</td>\n    <td>{{ {alarm:'Alarm microsleep', reset:'Alarm dimatikan', level:'Level naik: ' + e.level,\n            wajib_istirahat:'Wajib istirahat', kalibrasi_ditolak:'Kalibrasi ditolak'}[e.jenis] || e.jenis }}</td>\n    <td>{{e.total_kantuk}}</td>\n    <td>{{e.durasi_alarm_s !== undefined ? e.durasi_alarm_s + ' s' : ''}}</td>\n  </tr>\n</table>",
+    "storeOutMessages": true,
+    "fwdInMessages": true,
+    "resendOnRefresh": true,
+    "templateScope": "local",
+    "className": "",
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "dk_f_query_hist",
+    "type": "function",
+    "z": "dk_tab",
+    "x": 380,
+    "y": 700,
+    "name": "query riwayat",
+    "func": "// 30 menit terakhir untuk grafik skor & PERCLOS\nreturn {payload: {diterima: {$gte: new Date(Date.now() - 30 * 60 * 1000)}, skor: {$ne: null}},\n        projection: {diterima: 1, skor: 1, perclos: 1}, sort: {diterima: 1}};",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "dk_db_hist"
+      ]
+    ]
+  },
+  {
+    "id": "dk_db_hist",
+    "type": "mongodb in",
+    "z": "dk_tab",
+    "x": 600,
+    "y": 700,
+    "mongodb": "dk_mongo",
+    "name": "riwayat 30 menit",
+    "collection": "telemetri",
+    "operation": "find",
+    "wires": [
+      [
+        "dk_f_hist_chart"
+      ]
+    ]
+  },
+  {
+    "id": "dk_f_hist_chart",
+    "type": "function",
+    "z": "dk_tab",
+    "x": 820,
+    "y": 700,
+    "name": "ke format grafik",
+    "func": "// Riwayat kosong jangan dikirim: data array kosong menimpa grafik dan menghentikan titik live\nif (!msg.payload || msg.payload.length === 0) return null;\nconst titik = (k) => msg.payload.map(d => ({x: new Date(d.diterima).getTime(), y: d[k]}));\nreturn {payload: [{series: ['Skor', 'PERCLOS (%)'], data: [titik('skor'), titik('perclos')], labels: ['']}]};",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "dk_ui_chart_skor"
+      ]
+    ]
+  }
+]
