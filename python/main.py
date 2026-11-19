@@ -80,6 +80,10 @@ while cap.isOpened():
                 if esp: esp.write(b'0') # Reset sinyal peringatan
 
             cv2.putText(frame, f"Nilai EAR: {rata_ear:.2f}", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+    else:
+        # Wajah hilang (menunduk/keluar frame): reset timer agar durasi tidak "melompat" saat wajah kembali
+        waktu_mulai_tutup = None
+        cv2.putText(frame, "WAJAH TIDAK TERDETEKSI", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2)
 
     cv2.imshow("Monitor Edge (Kelompok 8)", frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
