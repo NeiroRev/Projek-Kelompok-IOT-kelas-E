@@ -11,11 +11,10 @@
 #define LED_HIJAU  26
 #define LED_KUNING 27
 #define LED_MERAH  14
-#define RELAY1_PIN 12  // IN1 - Simulasi Lampu Hazard
+#define RELAY1_PIN 13  // IN1 - Simulasi Lampu Hazard (aman dari strapping pin 12)
 #define BUTTON_PIN 4   // Tombol Reset Fisik (INPUT_PULLUP)
 
 // --- LOGIKA RELAY (ACTIVE-LOW) ---
-// Jika nanti saat kondisi "FOKUS" relay malah menyala, tukar LOW dan HIGH di bawah ini.
 #define RELAY_ON   LOW
 #define RELAY_OFF  HIGH
 
@@ -24,11 +23,12 @@
 #define SCREEN_HEIGHT 64
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-// --- KONFIGURASI WIFI & MQTT CLOUD ---
-const char* ssid        = "iot";      // Ganti dengan SSID WiFi 2.4GHz
-const char* password    = "akuganteng";  // Ganti dengan Password WiFi
-const char* mqtt_server = "broker.hivemq.com";
-const char* mqtt_topic  = "kelompok8/deteksi_kantuk/log";
+// --- KONFIGURASI WIFI & THINGSBOARD CLOUD ---
+const char* ssid        = "iot";
+const char* password    = "akuganteng";
+const char* mqtt_server = "thingsboard.cloud";
+const char* mqtt_topic  = "v1/devices/me/telemetry";
+const char* tb_token    = "GpBzDTPVZyoCU7rd7c0l";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -63,6 +63,13 @@ void setNormalState() {
 
   String info = "Total Kantuk: " + String(totalPelanggaran);
   tampilkanOLED("  FOKUS", info.c_str(), 2);
+
+  // Kirim status FOKUS ke ThingsBoard saat direset
+  if (client.connected()) {
+    String payload = "{\"status\":\"FOKUS\",\"total_kantuk\":" + String(totalPelanggaran) + ",\"uptime_ms\":" + String(millis()) + "}";
+    client.publish(mqtt_topic, payload.c_str());
+    Serial.println("Status FOKUS terkirim ke ThingsBoard MQTT.");
+  }
 }
 
 void setAlarmState() {
@@ -84,22 +91,29 @@ void setAlarmState() {
   if (client.connected()) {
     String payload = "{\"status\":\"MENGANTUK\",\"total_kantuk\":" + String(totalPelanggaran) + ",\"uptime_ms\":" + String(millis()) + "}";
     client.publish(mqtt_topic, payload.c_str());
-    Serial.println("Log terkirim ke MQTT.");
+    Serial.println("Log terkirim ke ThingsBoard MQTT.");
   } else {
     Serial.println("MQTT offline - Alarm lokal tetap berjalan.");
   }
 }
 
 void reconnectMQTTNonBlocking() {
-  if (WiFi.status() != WL_CONNECTED) return;
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.print("Menunggu WiFi... Status: ");
+    Serial.println(WiFi.status());
+    return;
+  }
 
   unsigned long now = millis();
   if (now - lastReconnectAttempt > 5000) {
     lastReconnectAttempt = now;
     String clientId = "ESP32_Kel8_" + String(random(0xffff), HEX);
-    if (client.connect(clientId.c_str())) {
-      Serial.println("MQTT Terhubung!");
+    if (client.connect(clientId.c_str(), tb_token, NULL)) {
+      Serial.println("ThingsBoard MQTT Terhubung!");
       lastReconnectAttempt = 0;
+    } else {
+      Serial.print("Gagal MQTT, state=");
+      Serial.println(client.state());
     }
   }
 }
