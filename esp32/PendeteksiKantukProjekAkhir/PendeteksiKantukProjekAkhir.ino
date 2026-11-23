@@ -79,6 +79,7 @@ bool tesAktif = false;
 unsigned long mulaiTes = 0;
 int layarTampil = -1;              // isi OLED terakhir, agar tidak digambar ulang tiap detik
 
+void terimaPerintah(char* topic, byte* payload, unsigned int length);
 void setup() {
   Serial.begin(115200);
 
