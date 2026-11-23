@@ -16,14 +16,19 @@
 #define RELAY2_PIN 13 // Putus Gas
 #define BUTTON_PIN 4  // Tombol Reset Fisik
 
+// Logika relay (modul fisik kelompok: ACTIVE-LOW). Di Wokwi relay active-HIGH: tukar LOW dan HIGH di bawah.
+// Jika saat kondisi "FOKUS" relay malah menyala, tukar juga.
+#define RELAY_ON   LOW
+#define RELAY_OFF  HIGH
+
 // Konfigurasi Layar OLED
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-// Konfigurasi WiFi & MQTT Cloud (ganti SSID/password sesuai hotspot saat demo fisik)
-const char* WIFI_SSID = "Wokwi-GUEST"; // Pakai koneksi default Wokwi
-const char* WIFI_PASS = "";
+// Konfigurasi WiFi & MQTT Cloud (WiFi 2.4 GHz; di Wokwi pakai "Wokwi-GUEST" tanpa password)
+const char* WIFI_SSID = "iot";
+const char* WIFI_PASS = "akuganteng";
 const char* mqtt_server = "broker.hivemq.com"; // Publik MQTT Broker untuk pengujian
 const char* TOPIK_TELEMETRI = "kelompok8/deteksi_kantuk/telemetri";
 const char* TOPIK_LOG = "kelompok8/deteksi_kantuk/log";
@@ -75,9 +80,10 @@ void setup() {
   pinMode(RELAY2_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  // Amankan Relay saat boot
-  digitalWrite(RELAY1_PIN, LOW);
-  digitalWrite(RELAY2_PIN, LOW);
+  // Amankan buzzer & relay saat boot
+  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(RELAY1_PIN, RELAY_OFF);
+  digitalWrite(RELAY2_PIN, RELAY_OFF);
 
   Wire.begin(SDA_PIN, SCL_PIN);
   oledOk = display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
@@ -149,8 +155,8 @@ void setNormalState() {
   digitalWrite(BUZZER_PIN, LOW);
   digitalWrite(LED_MERAH, LOW);
   digitalWrite(LED_KUNING, LOW);
-  digitalWrite(RELAY1_PIN, LOW);
-  digitalWrite(RELAY2_PIN, LOW);
+  digitalWrite(RELAY1_PIN, RELAY_OFF);
+  digitalWrite(RELAY2_PIN, RELAY_OFF);
   digitalWrite(LED_HIJAU, HIGH);
 
   layarTampil = -1; // paksa gambar ulang setelah layar alarm
@@ -169,8 +175,8 @@ void setAlarmState() {
   digitalWrite(LED_KUNING, LOW);
   digitalWrite(LED_MERAH, HIGH);
   digitalWrite(BUZZER_PIN, HIGH);
-  digitalWrite(RELAY1_PIN, HIGH);
-  digitalWrite(RELAY2_PIN, HIGH);
+  digitalWrite(RELAY1_PIN, RELAY_ON);
+  digitalWrite(RELAY2_PIN, RELAY_ON);
 
   if(oledOk) {
     display.clearDisplay();
@@ -384,7 +390,9 @@ void perbaruiEfek() {
 
 bool sambungMqtt() {
   // Last Will: broker mengumumkan "offline" bila ESP32 putus tidak normal
-  if (!client.connect("ESP32_Kel8_Client", TOPIK_STATUS, 1, true, "offline")) return false;
+  // Client ID acak: dua perangkat (mis. Wokwi + alat fisik) tidak saling memutus di broker publik
+  String clientId = "ESP32_Kel8_" + String(random(0xffff), HEX);
+  if (!client.connect(clientId.c_str(), TOPIK_STATUS, 1, true, "offline")) return false;
   client.publish(TOPIK_STATUS, "online", true);
   client.subscribe(TOPIK_PERINTAH);
   return true;

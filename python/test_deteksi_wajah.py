@@ -6,7 +6,7 @@ import numpy as np
 
 from deteksi_wajah import MATA_KANAN, MATA_KIRI, buat_landmarker, deteksi, hitung_ear
 
-MODEL = os.path.join(os.path.dirname(__file__), 'models', 'face_landmarker.task')
+MODEL = os.path.join(os.path.dirname(__file__), 'face_landmarker.task')
 W, H = 640, 480
 
 

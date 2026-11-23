@@ -5,11 +5,11 @@ import time
 
 from deteksi_wajah import MATA_KANAN, MATA_KIRI, buat_landmarker, deteksi, hitung_ear
 from kelelahan import Kalibrator, PenilaiKelelahan, level_dari_skor, saran
-from protokol import PembacaSerial, baris_telemetri
+from protokol import PembacaSerial, PengirimKritis, baris_telemetri
 
 # --- KONFIGURASI SERIAL ---
-# Ubah COM3 (Windows) atau /dev/ttyUSB0 (Linux/Mac) sesuai port ESP32 asli
-PORT_SERIAL = 'COM3'
+# Sesuaikan dengan port ESP32 di Arduino IDE (Windows COMx, Linux/Mac /dev/ttyUSB0)
+PORT_SERIAL = 'COM9'
 BAUD_RATE = 115200
 
 try:
@@ -21,7 +21,7 @@ except Exception as e:
     print(f"Warning: Mode Uji Coba tanpa ESP32 (Port {PORT_SERIAL} tidak terdeteksi)")
 
 # --- INISIALISASI MEDIAPIPE (Tasks API FaceLandmarker, 478 landmark) ---
-MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'face_landmarker.task')
+MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'face_landmarker.task')
 landmarker = buat_landmarker(MODEL)
 
 # Threshold Laporan (ambang EAR kini dari kalibrasi otomatis, bawaan 0,25)
@@ -33,13 +33,23 @@ waktu_mulai_tutup = None
 kalibrator = Kalibrator()          # ambang EAR pribadi
 penilai = PenilaiKelelahan()       # skor kelelahan prediktif
 pembaca = PembacaSerial()          # perintah dashboard yang diteruskan ESP32
+pengirim = PengirimKritis()        # karakter kritis dikirim saat berubah + ulang tiap 0,5 s
 t_telemetri = 0.0
 skor, level = -1, '-'
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 WARNA_LEVEL = {'SEGAR': (0, 255, 0), 'WASPADA': (0, 255, 255), 'LELAH': (0, 140, 255), 'BAHAYA': (0, 0, 255), '-': (200, 200, 200)}
 
+
+def kirim_kritis(karakter, t):
+    if esp and pengirim.perlu_kirim(karakter, t):
+        esp.write(karakter.encode())
+
+
 cap = cv2.VideoCapture(0)
+if not cap.isOpened():
+    print("[ERROR] Webcam tidak dapat dibuka.")
+    raise SystemExit(1)
 kalibrator.mulai(time.monotonic())
 
 while cap.isOpened():
@@ -66,15 +76,15 @@ while cap.isOpened():
 
                 if durasi >= DURASI_BAHAYA:
                     cv2.putText(frame, "STATUS: BAHAYA MICRO-SLEEP", (20, 40), FONT, 0.8, (0, 0, 255), 2)
-                    if esp: esp.write(b'1') # Trigger alarm
+                    kirim_kritis('1', t) # Trigger alarm
 
                 elif durasi >= DURASI_AWAL:
                     cv2.putText(frame, "STATUS: Peringatan Dini", (20, 40), FONT, 0.8, (0, 255, 255), 2)
-                    if esp: esp.write(b'W') # Trigger LED Kuning
+                    kirim_kritis('W', t) # Trigger LED Kuning
         else:
             waktu_mulai_tutup = None
             cv2.putText(frame, "STATUS: FOKUS", (20, 40), FONT, 0.8, (0, 255, 0), 2)
-            if esp: esp.write(b'0') # Reset sinyal peringatan
+            kirim_kritis('0', t) # Reset sinyal peringatan
 
         cv2.putText(frame, f"Nilai EAR: {rata_ear:.2f}", (20, 80), FONT, 0.6, (255, 255, 255), 1)
     else:

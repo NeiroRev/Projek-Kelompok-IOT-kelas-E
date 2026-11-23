@@ -38,9 +38,10 @@ dimatikan lewat tombol fisik. Dashboard **tidak bisa** mematikan alarm.
 | `python/main.py` | Program utama di laptop |
 | `python/deteksi_wajah.py` | MediaPipe Tasks FaceLandmarker (478 landmark) + EAR |
 | `python/kelelahan.py` | Kalibrasi, PERCLOS, skor, level, saran (tanpa kamera, teruji) |
-| `python/protokol.py` | Baris serial `T,...` dan pembaca `CMD,...` |
-| `python/models/face_landmarker.task` | Model MediaPipe (Apache 2.0) |
-| `esp32/sketch.ino` | Firmware ESP32 |
+| `python/protokol.py` | Baris serial `T,...`, pembaca `CMD,...`, pengirim karakter kritis |
+| `python/face_landmarker.task` | Model MediaPipe (Apache 2.0) |
+| `esp32/PendeteksiKantukProjekAkhir/` | Firmware ESP32 lengkap (dashboard + fitur smart) — dipakai untuk demo |
+| `esp32/PendeteksiKantukSederhana/` | Firmware versi Brian tanpa dashboard (cadangan) |
 | `wokwi/diagram.json` | Rangkaian simulasi Wokwi |
 | `nodered/flows.json` | Flow + dashboard Node-RED |
 | `nodered/uji_publish.js` | Kirim data contoh ke broker untuk menguji dashboard tanpa ESP32 |
@@ -52,9 +53,13 @@ dimatikan lewat tombol fisik. Dashboard **tidak bisa** mematikan alarm.
    ```bash
    pip install -r python/requirements.txt
    ```
-   Ubah `PORT_SERIAL` di `python/main.py` sesuai port ESP32 (Device Manager). Tutup Serial Monitor Arduino IDE.
-2. **ESP32**: buka `esp32/sketch.ino` di Arduino IDE, pasang library *Adafruit SSD1306*, *Adafruit GFX*,
-   *PubSubClient*. Untuk perangkat fisik ganti `WIFI_SSID`/`WIFI_PASS`. Unggah ke *DOIT ESP32 DEVKIT V1*.
+   Ubah `PORT_SERIAL` di `python/main.py` (bawaan `COM9`) sesuai port ESP32 di Arduino IDE. Tutup Serial Monitor
+   Arduino IDE sebelum menjalankan `main.py`.
+2. **ESP32**: buka `esp32/PendeteksiKantukProjekAkhir/PendeteksiKantukProjekAkhir.ino` di Arduino IDE, pasang
+   library *Adafruit SSD1306*, *Adafruit GFX*, *PubSubClient*. Sesuaikan `WIFI_SSID`/`WIFI_PASS` (WiFi 2.4 GHz),
+   lalu unggah ke *DOIT ESP32 DEVKIT V1*. Relay di-set **active-LOW** (`RELAY_ON LOW`) sesuai modul kelompok.
+   Untuk Wokwi (`wokwi/diagram.json`): salin firmware ini, pakai WiFi `Wokwi-GUEST` tanpa password, dan tukar
+   `RELAY_ON`/`RELAY_OFF` karena relay Wokwi active-HIGH.
 3. **MongoDB** berjalan di `localhost:27017` (service MongoDB).
 4. **Node-RED**: pasang palet `node-red-dashboard` dan `node-red-node-mongodb`, lalu *Import* `nodered/flows.json`
    dan *Deploy*. Buka `http://localhost:1880/ui`. Data tersimpan di database `deteksi_kantuk`
@@ -75,7 +80,8 @@ cd python && python -m unittest -v
 
 ## Protokol
 
-Serial laptop → ESP32: karakter `'0'` (mata terbuka), `'W'` (tertutup ≥ 1 s), `'1'` (tertutup ≥ 2 s, alarm), dan
+Serial laptop → ESP32: karakter `'0'` (mata terbuka), `'W'` (tertutup ≥ 1 s), `'1'` (tertutup ≥ 2 s, alarm) —
+dikirim saat status berubah dan diulang tiap 0,5 s — dan
 setiap detik `T,<ear>,<ambang>,<baseline>,<perclos>,<skor>,<level>,<kal>` (`-1` = tidak ada; `kal` 0 sedang,
 1 selesai, 2 gagal). ESP32 → laptop: `CMD,KALIBRASI`.
 

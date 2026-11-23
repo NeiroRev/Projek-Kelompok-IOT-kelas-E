@@ -1,6 +1,6 @@
 import unittest
 
-from protokol import PembacaSerial, baris_telemetri
+from protokol import PembacaSerial, PengirimKritis, baris_telemetri
 
 
 class TesProtokol(unittest.TestCase):
@@ -30,6 +30,25 @@ class TesProtokol(unittest.TestCase):
         b.masukkan(b'x' * 5000)
         self.assertEqual(b.masukkan(b'\nCMD,KALIBRASI\n'), ['KALIBRASI'])
         self.assertLessEqual(len(b._sisa), 256)
+
+
+
+class TesPengirimKritis(unittest.TestCase):
+    def test_kirim_saat_berubah(self):
+        k = PengirimKritis()
+        self.assertTrue(k.perlu_kirim('0', 0.00))
+        self.assertFalse(k.perlu_kirim('0', 0.03))  # status sama, belum 0,5 s
+        self.assertTrue(k.perlu_kirim('W', 0.06))   # berubah -> langsung
+        self.assertTrue(k.perlu_kirim('1', 0.09))
+
+    def test_ulang_berkala_saat_status_sama(self):
+        # Status '1' tetap dikirim ulang tiap 0,5 s: setelah tombol reset ditekan
+        # sementara mata masih tertutup, alarm menyala lagi (perilaku awal sistem)
+        k = PengirimKritis()
+        self.assertTrue(k.perlu_kirim('1', 10.0))
+        self.assertFalse(k.perlu_kirim('1', 10.49))
+        self.assertTrue(k.perlu_kirim('1', 10.5))
+        self.assertFalse(k.perlu_kirim('1', 10.6))
 
 
 if __name__ == '__main__':

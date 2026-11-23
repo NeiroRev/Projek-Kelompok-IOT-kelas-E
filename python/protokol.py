@@ -2,6 +2,7 @@
 Karakter tunggal '0'/'W'/'1' tetap dikirim langsung di main.py; modul ini hanya baris telemetri dan perintah."""
 
 MAKS_BARIS = 256
+ULANG_KRITIS_S = 0.5
 
 
 def baris_telemetri(ear, ambang, baseline, perclos, skor, level, kal):
@@ -27,3 +28,19 @@ class PembacaSerial:
             if teks.startswith('CMD,'):
                 perintah.append(teks[4:])
         return perintah
+
+
+class PengirimKritis:
+    """Kirim karakter kritis hanya saat status berubah (dari versi Brian), tetapi tetap ulangi tiap 0,5 s
+    agar ESP32 yang baru restart atau baru di-reset tetap menerima status terkini."""
+
+    def __init__(self):
+        self._terakhir = None
+        self._t_kirim = 0.0
+
+    def perlu_kirim(self, karakter, t):
+        if karakter != self._terakhir or t - self._t_kirim >= ULANG_KRITIS_S:
+            self._terakhir = karakter
+            self._t_kirim = t
+            return True
+        return False
