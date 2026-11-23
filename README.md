@@ -12,9 +12,9 @@ Webcam → laptop (main.py: EAR, kalibrasi, skor) ──Serial 115200──► E
 | Syarat dosen | Di proyek ini |
 |---|---|
 | Input | Webcam (EAR), tombol reset fisik, tombol di dashboard |
-| Output | Buzzer, LED hijau/kuning/merah, relay hazard & pemutus gas, OLED, notifikasi dashboard |
+| Output | Buzzer, LED hijau/kuning/merah, relay hazard (GPIO 13) & pemutus gas (GPIO 32, opsional), OLED, notifikasi dashboard |
 | Koneksi internet | ESP32 → MQTT: telemetri 1 Hz, log kejadian, status online/offline, menerima perintah |
-| Monitoring dashboard | Node-RED Dashboard `http://localhost:1880/ui` + riwayat di MongoDB |
+| Monitoring dashboard | Node-RED Dashboard `http://localhost:1880/ui` + riwayat di MongoDB; ringkasan juga dikirim ke ThingsBoard Cloud |
 
 ## Fitur smart
 
@@ -41,7 +41,7 @@ dimatikan lewat tombol fisik. Dashboard **tidak bisa** mematikan alarm.
 | `python/protokol.py` | Baris serial `T,...`, pembaca `CMD,...`, pengirim karakter kritis |
 | `python/face_landmarker.task` | Model MediaPipe (Apache 2.0) |
 | `esp32/PendeteksiKantukProjekAkhir/` | Firmware ESP32 lengkap (dashboard + fitur smart) — dipakai untuk demo |
-| `esp32/PendeteksiKantukSederhana/` | Firmware versi Brian tanpa dashboard (cadangan) |
+| `esp32/PendeteksiKantukSederhana/` | Firmware versi Brian (ThingsBoard saja, tanpa fitur smart) — cadangan |
 | `wokwi/diagram.json` | Rangkaian simulasi Wokwi |
 | `nodered/flows.json` | Flow + dashboard Node-RED |
 | `nodered/uji_publish.js` | Kirim data contoh ke broker untuk menguji dashboard tanpa ESP32 |
@@ -94,6 +94,10 @@ MQTT (`broker.hivemq.com:1883`, prefix `kelompok8/deteksi_kantuk/`):
 | `status` | ESP32 → | `online` / Last Will `offline` (retain) |
 | `perintah` | dashboard → | `KALIBRASI` (ditolak saat alarm/wajib istirahat) atau `TES_ALARM` |
 
+ThingsBoard Cloud (`thingsboard.cloud:1883`, topik `v1/devices/me/telemetry`, username = token device): tiap 5 detik
+dan saat alarm/reset, ESP32 mengirim `status` (FOKUS/MENGANTUK), `total_kantuk`, `uptime_ms`, `skor`, `level`,
+`wajib_istirahat`, `kamera`.
+
 ## Skenario demo (± 5 menit)
 
 1. **Kalibrasi dua orang**: orang A lalu orang B (tombol *Kalibrasi ulang* di dashboard) → ambang pribadi berbeda.
@@ -109,5 +113,6 @@ MQTT (`broker.hivemq.com:1883`, prefix `kelompok8/deteksi_kantuk/`):
 
 - Broker publik tanpa TLS/autentikasi: siapa pun yang tahu topik bisa membaca atau mengirim perintah. Untuk
   penerapan nyata gunakan broker privat dengan TLS dan ACL.
-- Relay 1 di GPIO 12 (pin strapping); bila ESP32 gagal boot, pindahkan ke GPIO 32/33.
+- Token ThingsBoard (`TB_TOKEN`) tersimpan di firmware pada repo publik; siapa pun yang membacanya bisa mengirim
+  data ke device ThingsBoard kelompok. Buat ulang token setelah demo.
 - Bobot skor adalah nilai awal dari desain; setel ulang setelah uji dengan beberapa responden.

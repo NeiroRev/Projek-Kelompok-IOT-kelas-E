@@ -12,8 +12,8 @@
 #define LED_HIJAU 26
 #define LED_KUNING 27
 #define LED_MERAH 14
-#define RELAY1_PIN 12 // Lampu Hazard
-#define RELAY2_PIN 13 // Putus Gas
+#define RELAY1_PIN 13 // Lampu Hazard (GPIO 13, aman dari strapping pin 12)
+#define RELAY2_PIN 32 // Putus Gas (opsional; channel kedua relay bila dipasang)
 #define BUTTON_PIN 4  // Tombol Reset Fisik
 
 // Logika relay (modul fisik kelompok: ACTIVE-LOW). Di Wokwi relay active-HIGH: tukar LOW dan HIGH di bawah.
@@ -35,11 +35,21 @@ const char* TOPIK_LOG = "kelompok8/deteksi_kantuk/log";
 const char* TOPIK_STATUS = "kelompok8/deteksi_kantuk/status";
 const char* TOPIK_PERINTAH = "kelompok8/deteksi_kantuk/perintah";
 
+// ThingsBoard Cloud (dashboard kedua dari Brian). Token = access token device di ThingsBoard.
+const char* TB_SERVER = "thingsboard.cloud";
+const char* TB_TOKEN = "GpBzDTPVZyoCU7rd7c0l";
+const char* TB_TOPIK = "v1/devices/me/telemetry";
+const unsigned long JEDA_TB = 5000UL;      // telemetri ringkas ke ThingsBoard tiap 5 detik
+
 // Eskalasi: >= 2 alarm dalam 10 menit -> wajib istirahat (hilang 10 menit setelah alarm terakhir)
 const unsigned long JENDELA_ESKALASI = 600000UL;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
+WiFiClient tbNet;                  // koneksi terpisah untuk ThingsBoard
+PubSubClient tb(tbNet);
+unsigned long lastReconnectTB = 2500; // digeser 2,5 s dari HiveMQ agar percobaan tidak bersamaan
+unsigned long lastTB = 0;
 
 bool isAlarmActive = false;
 bool oledOk = false;               // false = jalan terus tanpa layar, alarm tetap berfungsi
@@ -98,6 +108,9 @@ void setup() {
   client.setSocketTimeout(2); // Batasi blokir loop saat broker tidak terjangkau (bawaan 15 detik)
   client.setBufferSize(512);  // JSON telemetri > batas bawaan PubSubClient (256 byte)
   client.setCallback(terimaPerintah);
+  tb.setServer(TB_SERVER, 1883);
+  tb.setSocketTimeout(2);
+  tb.setBufferSize(384);
 
   setNormalState();
 }
@@ -161,6 +174,7 @@ void setNormalState() {
 
   layarTampil = -1; // paksa gambar ulang setelah layar alarm
   tampilkanLayar();
+  kirimThingsBoard();
 }
 
 void setAlarmState() {
@@ -193,6 +207,7 @@ void setAlarmState() {
   // Pengiriman Log ke Cloud (setelah aktuator, boleh gagal tanpa mengganggu alarm)
   kirimEvent("alarm", "");
   catatEskalasi();
+  kirimThingsBoard();
 }
 
 // Eskalasi dihitung di perangkat: dua alarm dalam 10 menit
@@ -388,6 +403,33 @@ void perbaruiEfek() {
   tampilkanLayar(); // hanya menggambar bila isi layar berubah (mis. data laptop menjadi basi)
 }
 
+// Telemetri ringkas ke ThingsBoard. Kunci status/total_kantuk/uptime_ms sama dengan versi Brian,
+// ditambah hasil fitur smart. Jalur non-kritis: gagal kirim tidak memengaruhi alarm.
+void kirimThingsBoard() {
+  if (!tb.connected()) return;
+  char skor[12], level[16];
+  if (dataLaptopSegar()) {
+    angkaAtauNull(skor, sizeof(skor), tSkor, 0);
+    snprintf(level, sizeof(level), "\"%s\"", levelTerakhir);
+  } else {
+    strcpy(skor, "null");
+    strcpy(level, "null");
+  }
+  char payload[256];
+  snprintf(payload, sizeof(payload),
+           "{\"status\":\"%s\",\"total_kantuk\":%d,\"uptime_ms\":%lu,\"skor\":%s,\"level\":%s,"
+           "\"wajib_istirahat\":%s,\"kamera\":%s}",
+           isAlarmActive ? "MENGANTUK" : "FOKUS", totalPelanggaran, millis(), skor, level,
+           wajibIstirahat ? "true" : "false", dataLaptopSegar() ? "true" : "false");
+  tb.publish(TB_TOPIK, payload);
+}
+
+bool sambungThingsBoard() {
+  // ThingsBoard: username = access token, password kosong
+  String clientId = "ESP32_Kel8_TB_" + String(random(0xffff), HEX);
+  return tb.connect(clientId.c_str(), TB_TOKEN, NULL);
+}
+
 bool sambungMqtt() {
   // Last Will: broker mengumumkan "offline" bila ESP32 putus tidak normal
   // Client ID acak: dua perangkat (mis. Wokwi + alat fisik) tidak saling memutus di broker publik
@@ -424,6 +466,15 @@ void loop() {
     sambungMqtt();
   }
   client.loop();
+  if (!tb.connected() && WiFi.status() == WL_CONNECTED && millis() - lastReconnectTB >= 5000) {
+    lastReconnectTB = millis();
+    sambungThingsBoard();
+  }
+  tb.loop();
+  if (millis() - lastTB >= JEDA_TB) {
+    lastTB = millis();
+    kirimThingsBoard();
+  }
 
   // 5. Telemetri 1 Hz dari timer ESP32 sendiri (tetap jalan walau laptop/kamera mati)
   if (millis() - lastTelemetri >= 1000) {
